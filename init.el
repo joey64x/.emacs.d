@@ -11,6 +11,7 @@
 ;; Read the local package directory and put installed packages on the load path
 (package-initialize)
 
+
 ;;; Bootstrap packages
 
 ;; Auto-install on a fresh machine so cloning this repo is the whole setup.
@@ -25,6 +26,7 @@
 (when (memq window-system '(mac ns))
   (exec-path-from-shell-initialize))
 
+
 ;;; Housekeeping
 
 ;; The Customize UI appends to init.el by default and rewrites whatever it
@@ -36,6 +38,7 @@
 ;; Keep backup files out of project directories
 (setq backup-directory-alist
       `(("." . ,(expand-file-name "backups" user-emacs-directory))))
+
 
 ;;; Editing behaviour
 
