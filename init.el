@@ -26,6 +26,14 @@
 (when (memq window-system '(mac ns))
   (exec-path-from-shell-initialize))
 
+;; Set up catpuccin theme
+(unless (package-installed-p 'catppuccin-theme)
+  (package-refresh-contents)
+  (package-install 'catppuccin-theme))
+
+(setq catppuccin-flavor 'latte)  ; 'latte 'frappe 'macchiato 'mocha
+(load-theme 'catppuccin :no-confirm)
+
 
 ;;; Housekeeping
 
@@ -34,10 +42,6 @@
 (setq custom-file (expand-file-name "custom.el" user-emacs-directory))
 (when (file-exists-p custom-file)
   (load custom-file))
-
-;; Keep backup files out of project directories
-(setq backup-directory-alist
-      `(("." . ,(expand-file-name "backups" user-emacs-directory))))
 
 ;; Reload buffers when the file changes on disk
 (global-auto-revert-mode 1)
@@ -49,13 +53,24 @@
 ;; Track recently opened files
 (recentf-mode 1)
 
+;; Relocates package state files into etc/ (config) and var/ (data)
+;; instead of scattering them through .emacs.d. Must load early, before
+;; the modes that would otherwise set their own paths.
+(unless (package-installed-p 'no-littering)
+  (package-refresh-contents)
+  (package-install 'no-littering))
+(require 'no-littering)
+
+;; Backups and auto-saves into var/ as well
+(no-littering-theme-backups)
+
 
 ;;; UI
 
 (setq use-short-answers t)            ; y/n instead of typing yes/no
 (tool-bar-mode -1)                   ; remove the icon strip
 (scroll-bar-mode -1)
-(setq inhibit-startup-screen t)
+; (setq inhibit-startup-screen t)
 (setq ring-bell-function 'ignore)    ; stop the flash/beep
 
 (global-display-line-numbers-mode -1)
