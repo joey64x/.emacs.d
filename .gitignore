@@ -1,5 +1,7 @@
 elpa/
 eln-cache/
+etc/
+var/
 custom.el
 auto-save-list/
 transient/
