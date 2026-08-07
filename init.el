@@ -125,6 +125,18 @@
          ("M-g i"   . consult-imenu)))         ; jump to function/section in file
 
 
+;;; Command palette and project search
+
+;; M-x through vertico already behaves like a command palette; these
+;; add the VS Code keys on top. On the Mac port, Cmd is the super key,
+;; so s-p is Cmd+P. Rebinding it also frees Cmd+P from the macOS print
+;; dialog, which nobody has ever wanted from a text editor.
+;; consult-ripgrep shells out to rg:  brew install ripgrep
+(global-set-key (kbd "s-P") #'execute-extended-command) ; Cmd+Shift+P: command palette
+(global-set-key (kbd "s-p") #'project-find-file)        ; Cmd+P: fuzzy find file in project
+(global-set-key (kbd "s-F") #'consult-ripgrep)          ; Cmd+Shift+F: live grep the project
+
+
 ;;; Editing behaviour
 
 (show-paren-mode 1)                   ; highlight the matching paren under point
@@ -132,6 +144,19 @@
 (column-number-mode 1)                ; show column number in the mode line
 (delete-selection-mode 1)             ; type over selected region, not deselect
 (save-place-mode 1)                   ; remember cursor position between sessions
+
+
+;;; Multiple cursors
+
+;; VS Code style multi-edit. C-g collapses back to a single cursor.
+;; The first time an unfamiliar command runs while cursors are active,
+;; mc asks whether to apply it to all of them and remembers the answer
+;; (the list lands in var/ thanks to no-littering).
+(use-package multiple-cursors
+  :bind (("s-d"         . mc/mark-next-like-this)   ; Cmd+D: mark next occurrence
+         ("s-L"         . mc/mark-all-like-this)    ; Cmd+Shift+L: mark all occurrences
+         ("C-S-c C-S-c" . mc/edit-lines)            ; cursor on every line of the region
+         ("s-<mouse-1>" . mc/add-cursor-on-click))) ; Cmd+click to place cursors
 
 
 ;;; Indentation
@@ -152,5 +177,201 @@
   (setq c-basic-offset 4))
 
 (add-hook 'c-mode-hook #'joey/c-indent-setup)
+
+
+;;; Windows and panels
+
+;; The layout model: normal windows in the middle for editing, side
+;; windows docked around the edges for panels. Side windows are built
+;; in; display-buffer-alist below decides which buffers become panels
+;; and where they dock. Treemacs sits in a left side window, the
+;; terminal docks at the bottom, Claude docks on the right.
+
+;; Undo for window layouts. C-c <left> restores the previous
+;; arrangement after something blows yours away.
+(winner-mode 1)
+
+;; Repeating commands drop their prefix: C-x o o o keeps cycling
+;; windows, C-x { { { keeps shrinking. Built in since Emacs 28.
+(repeat-mode 1)
+
+;; Jump to any window by home-row letter. With only two windows it
+;; skips the letters and just switches.
+(use-package ace-window
+  :bind ("M-o" . ace-window)
+  :custom
+  (aw-keys '(?a ?s ?d ?f ?g ?h ?j ?k ?l)))
+
+;; Which buffers dock where. Each entry: a regexp on the buffer name,
+;; a display function, then placement and size.
+(setq display-buffer-alist
+      '(("\\*vterm\\*"
+         (display-buffer-in-side-window)
+         (side . bottom)
+         (window-height . 0.3))
+        ("\\*Claude\\*"
+         (display-buffer-in-side-window)
+         (side . right)
+         (window-width . 0.4))))
+
+;; Make C-x b respect the rules above, so switching to *vterm* sends
+;; it to its panel instead of taking over the current window.
+(setq switch-to-buffer-obey-display-actions t)
+
+(defun joey/dock-buffer (side)
+  "Dock the current buffer to SIDE as a side window.
+SIDE is left, right, top or bottom. Any buffer can become a panel
+this way: eww, help, compilation output. Undo with C-c <left>."
+  (interactive
+   (list (intern (completing-read "Dock side: "
+                                  '(left right top bottom) nil t))))
+  (let ((buf (current-buffer)))
+    (if (window-deletable-p)
+        (delete-window)
+      (switch-to-prev-buffer))
+    (select-window
+     (display-buffer-in-side-window
+      buf
+      (list (cons 'side side)
+            (if (memq side '(left right))
+                '(window-width . 0.35)
+              '(window-height . 0.3)))))))
+
+;; C-c w: the window and panel keymap.
+(global-set-key (kbd "C-c w d") #'joey/dock-buffer)          ; dock buffer to a side
+(global-set-key (kbd "C-c w t") #'window-toggle-side-windows) ; hide/show all panels
+(global-set-key (kbd "C-c w =") #'balance-windows)           ; equalize sizes
+
+;; Resize the current window from the keyboard. Dragging the divider
+;; between windows with the mouse also works.
+(global-set-key (kbd "C-s-<up>")    #'enlarge-window)
+(global-set-key (kbd "C-s-<down>")  #'shrink-window)
+(global-set-key (kbd "C-s-<left>")  #'shrink-window-horizontally)
+(global-set-key (kbd "C-s-<right>") #'enlarge-window-horizontally)
+
+
+;;; File tree
+
+;; A project sidebar on the left, VS Code style. dired stays around
+;; for real file management; this is for orientation and quick opens.
+(use-package treemacs
+  :bind ("s-b" . treemacs)              ; Cmd+B: toggle the sidebar
+  :config
+  (setq treemacs-width 32)
+  (treemacs-follow-mode 1)              ; highlight the file being edited
+  (treemacs-filewatch-mode 1))          ; pick up external file changes
+
+
+;;; Terminal
+
+;; vterm is a real terminal emulator backed by libvterm, so shells,
+;; colors and curses apps behave. The package compiles a small C
+;; module on first launch, which needs two build tools:
+;;   brew install cmake libtool
+(use-package vterm
+  :commands vterm
+  :config
+  (setq vterm-always-compile-module t)  ; skip the compile prompt
+  (setq vterm-max-scrollback 10000)
+  ;; vterm swallows most keys and sends them to the shell. Carve the
+  ;; toggle key back out so it closes the panel from inside too.
+  (define-key vterm-mode-map (kbd "C-`") #'joey/toggle-vterm))
+
+(defun joey/toggle-vterm ()
+  "Toggle the terminal panel at the bottom of the frame."
+  (interactive)
+  (if-let* ((win (get-buffer-window "*vterm*")))
+      (delete-window win)
+    (let ((buf (or (get-buffer "*vterm*")
+                   (save-window-excursion
+                     (vterm)
+                     (get-buffer "*vterm*")))))
+      (select-window (display-buffer buf)))))
+
+(global-set-key (kbd "C-`") #'joey/toggle-vterm)  ; same key as VS Code
+
+
+;;; Claude
+
+;; gptel turns any buffer into a chat. The panel below is a normal
+;; org-mode buffer: headings per exchange, foldable, saveable. Inside
+;; it, C-c RET sends; C-u C-c RET opens the menu to switch models,
+;; add files to context, or redirect the response.
+;;
+;; The key lives in ~/.authinfo (chmod 600), one line:
+;;   machine api.anthropic.com login apikey password sk-ant-yourkey
+(use-package gptel
+  :commands (gptel gptel-send)
+  :config
+  (setq gptel-default-mode 'org-mode)
+  (setq gptel-model 'claude-sonnet-4-6  ; fast default for chat
+        gptel-backend (gptel-make-anthropic "Claude"
+                        :stream t
+                        :key gptel-api-key  ; resolves via ~/.authinfo
+                        :models '(claude-sonnet-4-6
+                                  claude-opus-4-8
+                                  claude-haiku-4-5-20251001
+                                  claude-fable-5))))
+
+(defun joey/toggle-claude ()
+  "Toggle the Claude panel on the right."
+  (interactive)
+  (if-let* ((win (get-buffer-window "*Claude*")))
+      (delete-window win)
+    (select-window (display-buffer (gptel "*Claude*")))))
+
+(global-set-key (kbd "s-l") #'joey/toggle-claude)  ; Cmd+L, as in Cursor
+
+
+;;; Browser
+
+;; Emacs ships two browsers. eww renders pages as simplified text and
+;; is always available. xwidget-webkit embeds real WebKit, but only
+;; when the binary was built with it; check with
+;; M-: (featurep 'xwidget-internal) and rebuild if you want it:
+;;   brew reinstall emacs-plus@31 --with-xwidgets
+;; joey/browse picks whichever the running Emacs supports.
+(setq eww-auto-rename-buffer 'title)  ; readable names for multiple pages
+
+(defun joey/browse (url)
+  "Open URL in Emacs. WebKit when compiled in, eww otherwise.
+Bare words become a DuckDuckGo search either way."
+  (interactive "sURL or search: ")
+  (if (featurep 'xwidget-internal)
+      (xwidget-webkit-browse-url
+       (cond ((string-match-p "\\`[a-z]+://" url) url)
+             ((string-match-p "\\." url) (concat "https://" url))
+             (t (concat "https://duckduckgo.com/html/?q="
+                        (url-hexify-string url)))))
+    (eww url)))
+
+(global-set-key (kbd "C-c b") #'joey/browse)
+
+
+;;; Org
+
+;; Plain text with superpowers: outlines, TODO tracking, agenda,
+;; capture. Everything lives under ~/org. C-c c files a thought into
+;; inbox.org without leaving what you're doing; C-c a shows the agenda
+;; across every org file in the directory.
+(use-package org
+  :ensure nil                           ; built in, nothing to fetch
+  :bind (("C-c a" . org-agenda)
+         ("C-c c" . org-capture)
+         ("C-c l" . org-store-link))
+  :config
+  (setq org-directory "~/org"
+        org-default-notes-file (expand-file-name "inbox.org" org-directory)
+        org-agenda-files (list org-directory)
+        org-startup-indented t          ; indent body text under its heading
+        org-hide-emphasis-markers t     ; render *bold* as bold, hide the stars
+        org-return-follows-link t
+        org-log-done 'time)             ; timestamp TODOs when they close
+  (make-directory org-directory t)      ; agenda errors if the dir is missing
+  (setq org-capture-templates
+        '(("t" "Todo" entry (file+headline "" "Tasks")
+           "* TODO %?\n  %U")
+          ("n" "Note" entry (file+headline "" "Notes")
+           "* %?\n  %U"))))
 
 ;;; init.el ends here
