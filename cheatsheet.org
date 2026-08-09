@@ -86,6 +86,17 @@ Typing, deleting, moving: every cursor does it.
 | C-c a       | agenda                  |
 In capture: C-c C-c files it, C-c C-k abandons it.
 
+* Markdown
+| C-c C-v   | reading ⇄ editing       |
+| n / p     | next / previous heading |
+| f / b     | same level, fwd / back  |
+| u         | up a heading level      |
+| SPC / DEL | page down / page up     |
+| q         | close                   |
+.md opens in reading view: prose font, markup hidden,
+code blocks highlighted. The single letters work there
+only; C-c C-v switches to editing and the code font.
+
 * Claude
 | C-c RET     | send                 |
 | C-u C-c RET | menu: model, context |

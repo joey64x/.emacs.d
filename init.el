@@ -394,6 +394,64 @@ Bare words become a DuckDuckGo search either way."
 (global-set-key (kbd "C-c b") #'joey/browse)
 
 
+;;; Markdown
+
+;; Emacs has no built-in markdown support. markdown-mode adds it, plus
+;; two read-only "preview" modes that render in the buffer rather than
+;; shelling out to a browser: markdown-view-mode and gfm-view-mode.
+;; They hide the markup (**bold** shows as bold, no stars), scale the
+;; headings, and syntax-highlight fenced code blocks. gfm- is the
+;; GitHub flavour, which is what almost every README actually is.
+;;
+;; Since reading is the common case here, .md opens in the view mode
+;; and C-c C-v flips to the editable mode. Swap gfm-view-mode for
+;; gfm-mode in :mode below to reverse that default.
+;;
+;; The fonts: text-mode-hook up in Appearance turns on variable-pitch
+;; for every text mode, and markdown-mode is one, so the two hooks
+;; below take over for markdown specifically. Reading gets the prose
+;; font, editing gets the code font. markdown's code and table faces
+;; already inherit fixed-pitch, so fenced blocks stay monospaced in
+;; the prose view.
+(use-package markdown-mode
+  :mode (("\\.md\\'"       . gfm-view-mode)
+         ("\\.markdown\\'" . gfm-view-mode))
+  :bind (:map markdown-mode-map
+         ("C-c C-v" . joey/markdown-toggle-view))
+  :custom
+  (markdown-header-scaling t)              ; bigger type for bigger headings
+  (markdown-fontify-code-blocks-natively t)
+  :hook ((markdown-mode . joey/markdown-editing-faces)
+         (markdown-view-mode . joey/markdown-reading-faces)
+         (gfm-view-mode . joey/markdown-reading-faces)))
+
+;; Both view modes derive from markdown-mode, so markdown-mode-hook
+;; runs first and the view hook runs after, overriding it.
+(defun joey/markdown-editing-faces ()
+  "Code font, visible markup: the editing look."
+  (variable-pitch-mode -1))
+
+(defun joey/markdown-reading-faces ()
+  "Prose font, wrapped lines: the reading look."
+  (variable-pitch-mode 1)
+  (visual-line-mode 1))
+
+(defun joey/markdown-toggle-view ()
+  "Switch the current buffer between markdown editing and reading.
+Keeps point where it was."
+  (interactive)
+  (let ((pos (point)))
+    (if (derived-mode-p 'markdown-view-mode 'gfm-view-mode)
+        (progn
+          (gfm-mode)
+          ;; The view modes leave these behind; a major mode change
+          ;; doesn't clear either one.
+          (read-only-mode -1)
+          (remove-from-invisibility-spec 'markdown-markup))
+      (gfm-view-mode))
+    (goto-char pos)))
+
+
 ;;; Org
 
 ;; Plain text with superpowers: outlines, TODO tracking, agenda,
