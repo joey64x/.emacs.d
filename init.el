@@ -80,12 +80,20 @@
 (setq ring-bell-function 'ignore)     ; stop the flash/beep
 (setq use-short-answers t)            ; y/n instead of typing yes/no
 
-(global-hl-line-mode 1)               ; highlight current line
-(set-face-attribute 'hl-line nil :background "#4F4F4F")
-
 (use-package zenburn-theme
   :config
   (load-theme 'zenburn :no-confirm))
+
+;; Face tweaks have to come after load-theme. A theme applies its own
+;; version of every face it knows about, so anything set beforehand is
+;; overwritten the moment the theme loads.
+;;
+;; hl-line highlights the single line point is on. It's off here because
+;; joey/hl-block-mode below highlights the enclosing block instead, and
+;; two backgrounds fighting over the same line looks muddy. Flip the 1
+;; back on (and turn the block mode off) to go back to line highlighting.
+(global-hl-line-mode -1)
+(set-face-attribute 'hl-line nil :background "#4F4F4F")
 
 ;; Line numbers only where they're useful. prog-mode is the parent of
 ;; every programming major mode, so this covers elisp, C, python, etc.
@@ -123,6 +131,222 @@
 
 ;; Any text-mode descendant (org, markdown, plain .txt) gets it
 (add-hook 'text-mode-hook #'variable-pitch-mode)
+
+
+;;; Block highlight
+
+;; hl-line highlights one line. This highlights the smallest meaningful
+;; chunk of text around point instead: the paragraph you're writing, the
+;; list item you're on, the if statement you're inside, the function when
+;; you're in its body but not in anything narrower.
+;;
+;; "Smallest meaningful chunk" is per-mode, so there's a dispatcher and
+;; one bounds function per kind of buffer:
+;;
+;;   org        the element at point, via org-element
+;;   markdown   heading line, list item, or paragraph
+;;   code       innermost enclosing block, via tree-sitter when a grammar
+;;              is loaded, otherwise by matching brackets
+;;   text       the paragraph
+;;
+;; The common rule in code buffers is "innermost thing that spans more
+;; than one line". That's what makes a bare statement inside a function
+;; highlight the whole function, while the same statement inside an if
+;; highlights just the if: the one-line pieces get skipped over and the
+;; first multi-line ancestor wins.
+
+(defface joey/hl-block '((t :extend t))
+  "Face for the block highlight.
+:extend makes the background run to the window edge on every line
+rather than stopping at the end of the text.")
+
+;; After the theme, same reason as hl-line above. Dimmer than hl-line's
+;; grey because it covers a lot more of the screen.
+(set-face-attribute 'joey/hl-block nil :background "#474747")
+
+(defvar joey/hl-block-exclude-modes
+  '(vterm-mode treemacs-mode dired-mode)
+  "Major modes that never get a block highlight.
+Terminals and sidebars have their own idea of the current line.")
+
+(defun joey/hl-block--multiline-p (beg end)
+  "Non-nil when the region BEG to END covers more than one line."
+  (save-excursion
+    (goto-char beg)
+    (< (line-end-position) end)))
+
+(defun joey/hl-block--trim (beg end)
+  "Return (BEG . END) snapped to whole lines with blank lines trimmed.
+Org elements in particular run to the start of the next element, which
+means they swallow the blank line after themselves."
+  (when (and beg end (< beg end))
+    (save-excursion
+      (goto-char beg)
+      (skip-chars-forward " \t\n" end)
+      (let ((start (line-beginning-position)))
+        (goto-char (min end (point-max)))
+        (skip-chars-backward " \t\n" start)
+        (cons start (line-end-position))))))
+
+(defun joey/hl-block--paragraph-bounds ()
+  "Bounds of the paragraph at point, or nil on a blank line."
+  (unless (save-excursion (beginning-of-line) (looking-at-p "[ \t]*$"))
+    (when-let* ((b (bounds-of-thing-at-point 'paragraph)))
+      (joey/hl-block--trim (car b) (cdr b)))))
+
+(defun joey/hl-block--org-bounds ()
+  "Bounds of the org element at point.
+Headings highlight as the single heading line, not the whole subtree,
+which is what makes moving down an outline feel like moving a cursor."
+  (let ((el (org-element-at-point)))
+    (if (eq (org-element-type el) 'headline)
+        (cons (line-beginning-position) (line-end-position))
+      ;; Point inside a bullet's text reports the paragraph, but the item
+      ;; is the unit worth seeing, so climb to it when there is one.
+      (when-let* ((item (org-element-lineage el '(item) t)))
+        (setq el item))
+      (joey/hl-block--trim (org-element-property :begin el)
+                           (org-element-property :end el)))))
+
+(defun joey/hl-block--markdown-bounds ()
+  "Heading line, list item, or paragraph at point."
+  (cond
+   ((save-excursion (beginning-of-line) (looking-at-p "[ \t]*#+[ \t]"))
+    (cons (line-beginning-position) (line-end-position)))
+   ((and (fboundp 'markdown-cur-list-item-bounds)
+         (markdown-cur-list-item-bounds))
+    (let ((b (markdown-cur-list-item-bounds)))
+      (joey/hl-block--trim (nth 0 b) (nth 1 b))))
+   (t (joey/hl-block--paragraph-bounds))))
+
+(defconst joey/hl-block--treesit-block-re
+  "statement\\|definition\\|declaration\\|clause\\|block\\|function\\|method\\|class"
+  "Node types that count as a block. Grammars name things differently,
+so this matches on substrings rather than listing every language's set.")
+
+(defconst joey/hl-block--treesit-body-re
+  "\\`\\(compound_statement\\|block\\|statement_block\\)\\'"
+  "Node types that are a bare body, with the interesting part outside them.")
+
+(defun joey/hl-block--treesit-bounds ()
+  "Bounds of the innermost multi-line block node around point."
+  (let ((node (treesit-node-at (point)))
+        (found nil))
+    (while (and node (not found))
+      (when (and (string-match-p joey/hl-block--treesit-block-re
+                                 (treesit-node-type node))
+                 (joey/hl-block--multiline-p (treesit-node-start node)
+                                             (treesit-node-end node)))
+        (setq found node))
+      (setq node (treesit-node-parent node)))
+    ;; A brace body on its own excludes the line that gives it meaning:
+    ;; the `if (...)' or the function signature. Step out to the parent so
+    ;; the header is inside the highlight.
+    (when (and found
+               (string-match-p joey/hl-block--treesit-body-re
+                               (treesit-node-type found))
+               (treesit-node-parent found))
+      (setq found (treesit-node-parent found)))
+    (when found
+      (cons (treesit-node-start found) (treesit-node-end found)))))
+
+(defun joey/hl-block--statement-start (beg)
+  "Back BEG up from an opening brace to the head of its statement.
+K&R puts the brace at the end of the `if' line, so the line start is the
+statement. Allman puts it on a line of its own, so the statement is the
+line above. Anything that isn't a brace, such as a lisp paren, is already
+at the right place."
+  (save-excursion
+    (goto-char beg)
+    (if (not (eq (char-after) ?\{))
+        beg
+      (skip-chars-backward " \t")
+      (when (bolp)
+        (forward-line -1))
+      (back-to-indentation)
+      (point))))
+
+(defun joey/hl-block--sexp-bounds ()
+  "Bounds of the innermost multi-line bracketed form around point.
+The bracket depth from `syntax-ppss' gives every enclosing form from
+outermost to innermost for free, so this walks that list inward-out and
+stops at the first one tall enough to be worth drawing."
+  (let ((opens (reverse (nth 9 (syntax-ppss))))   ; innermost first
+        (result nil))
+    (while (and opens (not result))
+      (let* ((beg (car opens))
+             (end (ignore-errors (scan-lists beg 1 0))))
+        (when (and end (joey/hl-block--multiline-p beg end))
+          (setq result (cons (joey/hl-block--statement-start beg) end))))
+      (setq opens (cdr opens)))
+    ;; Outside every bracket: a top-level defun, or just the line.
+    (or result
+        (if-let* ((b (bounds-of-thing-at-point 'defun)))
+            (joey/hl-block--trim (car b) (cdr b))
+          (unless (save-excursion (beginning-of-line) (looking-at-p "[ \t]*$"))
+            (cons (line-beginning-position) (line-end-position)))))))
+
+(defun joey/hl-block-bounds ()
+  "Bounds of the block around point in the current buffer, or nil.
+Errors are swallowed: this runs after every command, and a parser
+complaining about half-typed code shouldn't interrupt typing."
+  (ignore-errors
+    (cond
+     ((derived-mode-p 'org-mode)      (joey/hl-block--org-bounds))
+     ((derived-mode-p 'markdown-mode) (joey/hl-block--markdown-bounds))
+     ((and (fboundp 'treesit-parser-list) (treesit-parser-list))
+      (joey/hl-block--treesit-bounds))
+     ((derived-mode-p 'prog-mode)     (joey/hl-block--sexp-bounds))
+     (t (joey/hl-block--paragraph-bounds)))))
+
+;; One overlay per buffer, moved rather than recreated, so this stays
+;; cheap enough to run on post-command-hook.
+(defvar-local joey/hl-block--overlay nil)
+
+(defun joey/hl-block--update ()
+  "Move the block overlay to the block around point.
+With no block at point, on a blank line say, the overlay goes away."
+  ;; bound-and-true-p because the mode variable is created by the
+  ;; define-minor-mode below this, and the byte compiler reads in order.
+  (let ((bounds (and (bound-and-true-p joey/hl-block-mode)
+                     (not (minibufferp))
+                     (joey/hl-block-bounds))))
+    (cond
+     ((null bounds)
+      (when (overlayp joey/hl-block--overlay)
+        (delete-overlay joey/hl-block--overlay)))
+     (t
+      (unless (overlayp joey/hl-block--overlay)
+        (setq joey/hl-block--overlay (make-overlay 1 1 nil nil t))
+        (overlay-put joey/hl-block--overlay 'face 'joey/hl-block)
+        ;; Below the region and search highlights, so selecting text
+        ;; still reads clearly on top of the block.
+        (overlay-put joey/hl-block--overlay 'priority -60))
+      (move-overlay joey/hl-block--overlay
+                    (car bounds)
+                    ;; Take the newline too, so :extend has something to
+                    ;; extend on the last line of the block.
+                    (min (point-max) (1+ (cdr bounds)))
+                    (current-buffer))))))
+
+(define-minor-mode joey/hl-block-mode
+  "Highlight the block, paragraph or statement surrounding point."
+  :lighter nil
+  (if joey/hl-block-mode
+      (add-hook 'post-command-hook #'joey/hl-block--update nil t)
+    (remove-hook 'post-command-hook #'joey/hl-block--update t)
+    (when (overlayp joey/hl-block--overlay)
+      (delete-overlay joey/hl-block--overlay))))
+
+(define-globalized-minor-mode joey/global-hl-block-mode
+  joey/hl-block-mode
+  (lambda ()
+    (unless (or (minibufferp)
+                (derived-mode-p joey/hl-block-exclude-modes))
+      (joey/hl-block-mode 1)))
+  :group 'convenience)
+
+(joey/global-hl-block-mode 1)
 
 
 ;;; Completion
