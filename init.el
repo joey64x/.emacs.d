@@ -429,17 +429,83 @@ With no block at point, on a blank line say, the overlay goes away."
 (setq-default indent-tabs-mode nil)   ; spaces, not tabs
 (setq-default tab-width 4)
 
-;; CC Mode applies a style when c-mode starts, which sets c-basic-offset
-;; after init.el has already run. Set the style here, then override the
-;; offset in a hook so the value lands afterward. Named function rather
+;; CC Mode still handles any C-family language without a tree-sitter
+;; mode below, so the style stays set here. CC Mode applies its style
+;; when the mode starts, which is after init.el has run, so the offset
+;; has to be re-set from a hook to land afterward. Named function rather
 ;; than a lambda so re-evaluating this file doesn't stack duplicates.
 (setq c-default-style "k&r")
 
 (defun joey/c-indent-setup ()
-  "Set C indentation width."
+  "Set C indentation width for CC Mode buffers."
   (setq c-basic-offset 4))
 
 (add-hook 'c-mode-hook #'joey/c-indent-setup)
+
+
+;;; Tree-sitter
+
+;; Emacs parses these languages for real rather than by regexp, which
+;; buys better fontification, more reliable indentation, and structural
+;; commands that understand nesting. joey/hl-block-mode picks the parse
+;; tree over bracket matching whenever a buffer has a parser, so blocks
+;; without braces highlight correctly too:
+;;
+;;   if (x > 0)
+;;       do_thing();     <- brackets can't see this; the parser can
+;;
+;; Where the grammars come from. M-x treesit-install-language-grammar
+;; reads this list, clones, compiles and drops a .dylib in
+;; tree-sitter/. That needs git and a C compiler (Command Line Tools),
+;; and only has to happen once per machine. The four below are already
+;; built; add a language here and install it to add a fifth.
+;;
+;; Markdown is deliberately absent: Emacs 30 has no markdown-ts-mode,
+;; and markdown-mode plus the block highlight already handle it.
+;; Wren has no usable grammar and no Emacs mode, so it stays on CC-style
+;; bracket matching, which its braces suit fine.
+(require 'treesit)
+
+(setq treesit-language-source-alist
+      '((c          "https://github.com/tree-sitter/tree-sitter-c")
+        (cpp        "https://github.com/tree-sitter/tree-sitter-cpp")
+        (json       "https://github.com/tree-sitter/tree-sitter-json")
+        (javascript "https://github.com/tree-sitter/tree-sitter-javascript")))
+
+;; Send the classic modes to their tree-sitter equivalents. Remapping
+;; rather than rewriting auto-mode-alist means every entry that already
+;; points at c-mode gets redirected too, and unsetting one line here is
+;; enough to fall back to CC Mode if a grammar ever misbehaves.
+;;
+;; treesit-ready-p guards each one: on a machine where the grammar isn't
+;; built yet, the remap is skipped and the old mode handles the file,
+;; rather than the buffer erroring out on open.
+;; javascript-mode is an alias of js-mode, but it is the symbol
+;; auto-mode-alist actually stores for .js, and remapping matches on the
+;; stored symbol rather than resolving aliases. Both entries are needed.
+(dolist (pair '((c-mode          . c-ts-mode)
+                (c++-mode        . c++-ts-mode)
+                (js-mode         . js-ts-mode)
+                (javascript-mode . js-ts-mode)
+                (js-json-mode    . json-ts-mode)))
+  (let ((lang (pcase (cdr pair)
+                ('c-ts-mode 'c) ('c++-ts-mode 'cpp)
+                ('json-ts-mode 'json) ('js-ts-mode 'javascript))))
+    (when (treesit-ready-p lang t)      ; t: stay quiet when missing
+      (add-to-list 'major-mode-remap-alist pair))))
+
+;; The ported indentation. c-ts-mode is not CC Mode, so it ignores
+;; c-default-style and c-basic-offset entirely; these two are the
+;; equivalents, and c++-ts-mode reads the same pair. Both are plain
+;; options read at mode start, so unlike CC Mode no hook is needed.
+(setq c-ts-mode-indent-style 'k&r)
+(setq c-ts-mode-indent-offset 4)
+
+;; The other two have their own offsets, both defaulting to 2. Set to 4
+;; to match tab-width above; JSON in particular is conventionally 2, so
+;; change json-ts-mode-indent-offset if that reads wrong to you.
+(setq js-indent-level 4)              ; js-ts-mode
+(setq json-ts-mode-indent-offset 4)
 
 
 ;;; Windows and panels

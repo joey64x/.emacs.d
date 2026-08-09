@@ -1,5 +1,6 @@
 elpa/
 eln-cache/
+tree-sitter/
 etc/
 var/
 custom.el
