@@ -73,15 +73,19 @@
 ;  (setq catppuccin-flavor 'mocha)  ; 'latte 'frappe 'macchiato 'mocha
 ;  (load-theme 'catppuccin :no-confirm))
 
-(use-package zenburn-theme
-  :config
-  (load-theme 'zenburn :no-confirm))
 
 (tool-bar-mode -1)                    ; remove the icon strip
 (scroll-bar-mode -1)
 ;; (setq inhibit-startup-screen t)    ; uncomment for scratch buffer on launch
 (setq ring-bell-function 'ignore)     ; stop the flash/beep
 (setq use-short-answers t)            ; y/n instead of typing yes/no
+
+(global-hl-line-mode 1)               ; highlight current line
+(set-face-attribute 'hl-line nil :background "#4F4F4F")
+
+(use-package zenburn-theme
+  :config
+  (load-theme 'zenburn :no-confirm))
 
 ;; Line numbers only where they're useful. prog-mode is the parent of
 ;; every programming major mode, so this covers elisp, C, python, etc.
@@ -91,6 +95,34 @@
 ;; Press any prefix key, pause, and get a popup of every continuation.
 ;; Built in as of Emacs 30.
 (which-key-mode 1)
+
+;; line spaceing increase
+(setq-default line-spacing 0.25)  ; fraction of line height, or an integer for pixels
+
+;; Spacious padding to add some breathing room
+(use-package spacious-padding
+  :ensure t
+  :custom
+  (spacious-padding-widths
+   '(:internal-border-width 16
+     :right-divider-width 16
+     :fringe-width 8
+     :mode-line-width 4))
+  :config
+  (spacious-padding-mode 1))
+
+;; Fonts are different for text vs code
+;; Prose font
+(set-face-attribute 'variable-pitch nil
+                    :family "iA Writer Quattro V"
+                    :height 1.1)
+
+;; Fallback mono face used inside prose buffers (match your code font)
+(set-face-attribute 'fixed-pitch nil
+                    :family "JetBrains Mono")
+
+;; Any text-mode descendant (org, markdown, plain .txt) gets it
+(add-hook 'text-mode-hook #'variable-pitch-mode)
 
 
 ;;; Completion
@@ -159,6 +191,13 @@
          ("s-<mouse-1>" . mc/add-cursor-on-click))) ; Cmd+click to place cursors
 
 
+;;; Moving selected text up and down
+(use-package move-text
+  :ensure t
+  :bind (("M-<up>" . move-text-up)
+         ("M-<down>" . move-text-down)))
+
+
 ;;; Indentation
 
 ;; setq-default rather than setq because these are buffer-local, and
@@ -203,16 +242,24 @@
   (aw-keys '(?a ?s ?d ?f ?g ?h ?j ?k ?l)))
 
 ;; Which buffers dock where. Each entry: a regexp on the buffer name,
-;; a display function, then placement and size.
+;; a display function, then placement and size. Slots order multiple
+;; panels on the same side: Claude sits above the cheatsheet when
+;; both are open on the right.
 (setq display-buffer-alist
-      '(("\\*vterm\\*"
+      '(("\\`\\*vterm\\*\\'"
          (display-buffer-in-side-window)
          (side . bottom)
          (window-height . 0.3))
         ("\\*Claude\\*"
          (display-buffer-in-side-window)
          (side . right)
-         (window-width . 0.4))))
+         (slot . 0)
+         (window-width . 0.4))
+        ("cheatsheet\\.org"
+         (display-buffer-in-side-window)
+         (side . right)
+         (slot . 1)
+         (window-width . 0.35))))
 
 ;; Make C-x b respect the rules above, so switching to *vterm* sends
 ;; it to its panel instead of taking over the current window.
@@ -373,5 +420,29 @@ Bare words become a DuckDuckGo search either way."
            "* TODO %?\n  %U")
           ("n" "Note" entry (file+headline "" "Notes")
            "* %?\n  %U"))))
+
+
+;;; Cheatsheet
+
+;; The keybinding reference is a plain org file living next to this
+;; config. C-c h toggles it as a right-hand panel. The essentials sit
+;; at the top; TAB on any heading below them unfolds the deeper stuff.
+;; It's an ordinary file, so edit it as new bindings accumulate.
+(defvar joey/cheatsheet-file
+  (expand-file-name "cheatsheet.org" user-emacs-directory)
+  "Where the keybinding cheatsheet lives.")
+
+(defun joey/toggle-cheatsheet ()
+  "Toggle the cheatsheet panel on the right."
+  (interactive)
+  (unless (file-exists-p joey/cheatsheet-file)
+    (user-error "No cheatsheet at %s; put cheatsheet.org next to init.el"
+                joey/cheatsheet-file))
+  (let ((buf (find-file-noselect joey/cheatsheet-file)))
+    (if-let* ((win (get-buffer-window buf)))
+        (delete-window win)
+      (select-window (display-buffer buf)))))
+
+(global-set-key (kbd "C-c h") #'joey/toggle-cheatsheet)
 
 ;;; init.el ends here

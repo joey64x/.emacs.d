@@ -1,0 +1,125 @@
+#+STARTUP: overview
+
+Legend: C = Ctrl · M = Option · Cmd = ⌘
+TAB on a heading unfolds it. S-TAB cycles all of them.
+
+*PANELS*
+| Cmd+B   | file tree                  |
+| Ctrl+`  | terminal                   |
+| Cmd+L   | Claude                     |
+| C-c b   | browser, URL or search     |
+| C-c h   | this cheatsheet            |
+| C-c w t | hide / show every panel    |
+| C-c w d | dock this buffer to a side |
+| M-o     | jump to a window by letter |
+
+*FIND*
+| Cmd+P       | file in project           |
+| Cmd+Shift+F | text across the project   |
+| C-s         | search this buffer        |
+| C-x b       | buffers and recent files  |
+| Cmd+Shift+P | any command (same as M-x) |
+
+*CORE*
+| C-g     | cancel anything, always |
+| C-x C-s | save (Cmd+S works)      |
+| C-x C-f | open a file             |
+| C-x k   | close this buffer       |
+| C-/     | undo (Cmd+Z works)      |
+| C-x C-c | quit Emacs              |
+
+Cmd+C, Cmd+V, Cmd+X, Cmd+A behave as expected.
+Stuck in a weird state? C-g. Still stuck? ESC ESC ESC.
+
+* Movement
+| C-a / C-e | start / end of line      |
+| M-f / M-b | forward / back a word    |
+| C-v / M-v | page down / page up      |
+| M-< / M-> | top / bottom of file     |
+| M-g g     | go to line               |
+| M-g i     | jump to def / section    |
+| C-l       | center view on cursor    |
+| C-SPC     | start selecting          |
+| C-x h     | select all (Cmd+A too)   |
+
+* Editing
+| C-w / M-w   | cut / copy selection   |
+| C-y / M-y   | paste / paste older    |
+| C-k         | cut to end of line     |
+| M-d / M-DEL | delete word fwd / back |
+| M-;         | comment selection      |
+| C-x C-;     | comment this line      |
+| M-%         | find and replace,      |
+|             | then y n ! to answer   |
+| M-q         | reflow paragraph       |
+| C-?         | redo                   |
+| C-x C-+ / - | bigger / smaller text  |
+
+* Multiple cursors
+| Cmd+D       | mark next occurrence  |
+| Cmd+Shift+L | mark all occurrences  |
+| C-S-c C-S-c | cursor on each line   |
+| Cmd+click   | place cursors by hand |
+| C-g         | back to one cursor    |
+Typing, deleting, moving: every cursor does it.
+
+* Windows
+| C-x 3 / C-x 2 | split right / below  |
+| C-x 0         | close this window    |
+| C-x 1         | close the others     |
+| C-x o         | next window (o o o…) |
+| C-s-arrows    | resize this window   |
+| C-c w =       | equalize sizes       |
+| C-c ← / →     | undo / redo layout   |
+
+* Org
+| TAB / S-TAB | fold heading / fold all |
+| M-RET       | new heading             |
+| M-↑ / M-↓   | move subtree            |
+| M-← / M-→   | promote / demote        |
+| C-c C-t     | cycle TODO state        |
+| C-c C-s     | schedule                |
+| C-c C-d     | deadline                |
+| C-c C-c     | toggle checkbox, etc.   |
+| C-c C-l     | insert link             |
+| C-c c       | capture from anywhere   |
+| C-c a       | agenda                  |
+In capture: C-c C-c files it, C-c C-k abandons it.
+
+* Claude
+| C-c RET     | send                 |
+| C-u C-c RET | menu: model, context |
+The chat is a plain org buffer. Save it like a file.
+From code: select a region, M-x gptel-send.
+M-x gptel-add feeds the region or buffer to context.
+
+* Terminal
+| Ctrl+`       | open / close            |
+| C-c C-t      | copy mode: move, select |
+| RET          | …copy and return        |
+| Cmd+V or C-y | paste                   |
+Most keys go to the shell. C-x and C-c stay Emacs.
+
+* Browser (eww)
+| l / r | back / forward       |
+| g     | reload               |
+| w     | copy page URL        |
+| &     | open in real browser |
+| q     | close                |
+
+* Files & projects
+| C-x p p | switch project            |
+| C-x p f | find file in project      |
+| C-x p b | project buffers           |
+| C-x C-j | dired: this file's folder |
+| C-x d   | dired: pick a folder      |
+In dired: RET opens, ^ goes up, g refreshes,
+d marks for delete, x executes, R renames, C copies.
+
+* Help
+| C-h k | what does this key do   |
+| C-h f | describe a function     |
+| C-h v | describe a variable     |
+| C-h m | all keys for this mode  |
+| C-h o | describe thing at point |
+Pause after any prefix and which-key lists the rest.
