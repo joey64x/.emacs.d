@@ -250,10 +250,9 @@
          (display-buffer-in-side-window)
          (side . bottom)
          (window-height . 0.3))
-        ("\\*Claude\\*"
-         (display-buffer-in-side-window)
-         (side . right)
-         (slot . 0)
+        ("\\*claude-code\\*"
+         (display-buffer-in-direction)
+         (direction . right)
          (window-width . 0.4))
         ("cheatsheet\\.org"
          (display-buffer-in-side-window)
@@ -338,36 +337,36 @@ this way: eww, help, compilation output. Undo with C-c <left>."
 (global-set-key (kbd "C-`") #'joey/toggle-vterm)  ; same key as VS Code
 
 
-;;; Claude
+;;; Claude Code
 
-;; gptel turns any buffer into a chat. The panel below is a normal
-;; org-mode buffer: headings per exchange, foldable, saveable. Inside
-;; it, C-c RET sends; C-u C-c RET opens the menu to switch models,
-;; add files to context, or redirect the response.
-;;
-;; The key lives in ~/.authinfo (chmod 600), one line:
-;;   machine api.anthropic.com login apikey password sk-ant-yourkey
-(use-package gptel
-  :commands (gptel gptel-send)
-  :config
-  (setq gptel-default-mode 'org-mode)
-  (setq gptel-model 'claude-sonnet-4-6  ; fast default for chat
-        gptel-backend (gptel-make-anthropic "Claude"
-                        :stream t
-                        :key gptel-api-key  ; resolves via ~/.authinfo
-                        :models '(claude-sonnet-4-6
-                                  claude-opus-4-8
-                                  claude-haiku-4-5-20251001
-                                  claude-fable-5))))
-
-(defun joey/toggle-claude ()
-  "Toggle the Claude panel on the right."
+;; Opens Claude Code in a vterm buffer docked to the right at 1/3
+;; width. Runs `claude update` first (fast no-op when current), then
+;; launches `claude`. Cmd+L toggles it open and closed.
+(defun joey/toggle-claude-code ()
+  "Toggle a Claude Code panel on the right side of the frame.
+On first launch, prompt for a working directory (defaults to the
+project root or the current buffer's directory)."
   (interactive)
-  (if-let* ((win (get-buffer-window "*Claude*")))
-      (delete-window win)
-    (select-window (display-buffer (gptel "*Claude*")))))
+  (let ((buf (get-buffer "*claude-code*")))
+    (if-let* ((win (and buf (get-buffer-window buf))))
+        (delete-window win)
+      (if (and buf (get-buffer-process buf))
+          (select-window (display-buffer buf))
+        (when buf (kill-buffer buf))
+        (let* ((default-dir (or (when-let* ((proj (project-current)))
+                                  (project-root proj))
+                                default-directory))
+               (dir (read-directory-name "Claude Code in: " default-dir nil t))
+               (default-directory dir))
+          (require 'vterm)
+          (setq buf (save-window-excursion
+                      (vterm "*claude-code*")
+                      (current-buffer)))
+          (with-current-buffer buf
+            (vterm-send-string "claude update 2>/dev/null; claude\n"))
+          (select-window (display-buffer buf)))))))
 
-(global-set-key (kbd "s-l") #'joey/toggle-claude)  ; Cmd+L, as in Cursor
+(global-set-key (kbd "s-l") #'joey/toggle-claude-code)  ; Cmd+L
 
 
 ;;; Browser
