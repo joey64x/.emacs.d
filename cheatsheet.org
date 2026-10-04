@@ -1,76 +1,141 @@
 #+STARTUP: overview
 
-Legend: C = Ctrl · M = Option · Cmd = ⌘
+Legend: C = Ctrl · M = Alt (Meta), or tap Esc then the key
 TAB on a heading unfolds it. S-TAB cycles all of them.
 
 *PANELS*
-| Cmd+B   | file tree                  |
-| Ctrl+`  | terminal                   |
-| Cmd+L   | Claude                     |
-| C-c b   | browser, URL or search     |
-| C-c h   | this cheatsheet            |
-| C-c w t | hide / show every panel    |
-| C-c w d | dock this buffer to a side |
-| M-o     | jump to a window by letter |
+| C-c o t | file tree               |
+| C-c o v | terminal                |
+| C-c o c | Claude                  |
+| C-c h   | this cheatsheet         |
+| C-c w t | hide / show every panel |
+| C-c w = | equalize window sizes   |
 
 *FIND*
-| Cmd+P       | file in project           |
-| Cmd+Shift+F | text across the project   |
-| C-s         | search this buffer        |
-| C-x b       | buffers and recent files  |
-| Cmd+Shift+P | any command (same as M-x) |
+| C-x p f | file in project          |
+| M-s r   | text across the project  |
+| C-s     | search this buffer       |
+| C-x b   | buffers and recent files |
+| M-x     | any command by name      |
 
 *CORE*
 | C-g     | cancel anything, always |
-| C-x C-s | save (Cmd+S works)      |
+| C-x C-s | save                    |
 | C-x C-f | open a file             |
 | C-x k   | close this buffer       |
-| C-/     | undo (Cmd+Z works)      |
+| C-/     | undo                    |
 | C-x C-c | quit Emacs              |
 
-Cmd+C, Cmd+V, Cmd+X, Cmd+A behave as expected.
 Stuck in a weird state? C-g. Still stuck? ESC ESC ESC.
+Reading the keys: C-x C-f means do the first combo, then the second.
 
 * Movement
-| C-a / C-e | start / end of line      |
-| M-f / M-b | forward / back a word    |
-| C-v / M-v | page down / page up      |
-| M-< / M-> | top / bottom of file     |
-| M-g g     | go to line               |
-| M-g i     | jump to def / section    |
-| C-l       | center view on cursor    |
-| C-SPC     | start selecting          |
-| C-x h     | select all (Cmd+A too)   |
+| C-f / C-b | forward / back a character |
+| C-n / C-p | next / previous line       |
+| C-a / C-e | start / end of line        |
+| M-f / M-b | forward / back a word      |
+| C-v / M-v | page down / page up        |
+| M-< / M-> | top / bottom of file       |
+| M-g g     | go to line                 |
+| M-g i     | jump to def / section      |
+| C-l       | center view on cursor      |
+
+* Selecting, cutting, copying
+| C-SPC | start selecting, then move to extend     |
+| C-@   | same, if your terminal eats C-SPC        |
+| C-x h | select all                               |
+| C-w   | cut selection                            |
+| M-w   | copy selection                           |
+| C-y   | paste                                    |
+| M-y   | paste older (browse the kill ring)       |
+Kill = cut. Everything you cut or copy goes in the kill ring.
 
 * Editing
-| C-w / M-w   | cut / copy selection   |
-| C-y / M-y   | paste / paste older    |
-| C-k         | cut to end of line     |
-| M-d / M-DEL | delete word fwd / back |
-| M-;         | comment selection      |
-| C-x C-;     | comment this line      |
-| M-%         | find and replace,      |
-|             | then y n ! to answer   |
-| M-q         | reflow paragraph       |
-| C-?         | redo                   |
-| C-x C-+ / - | bigger / smaller text  |
+| C-k         | cut to end of line       |
+| C-d         | delete char under cursor |
+| M-d / M-DEL | delete word fwd / back   |
+| C-o         | open a new line below    |
+| C-t         | swap two characters      |
+| M-;         | comment region or line   |
+| M-%         | find and replace,        |
+|             | then y n ! to answer     |
+| M-q         | reflow paragraph         |
+| C-M-_       | redo                     |
+| M-↑ / M-↓   | move line or selection   |
+
+* Search and replace
+| C-s | search this buffer, matches listed as you type |
+| C-r | classic search backward, C-s goes forward      |
+| RET | stay on the match                              |
+| C-g | cancel, back to where you started              |
+| M-% | find and replace: y = yes, n = skip, ! = all   |
 
 * Multiple cursors
-| Cmd+D       | mark next occurrence  |
-| Cmd+Shift+L | mark all occurrences  |
-| C-S-c C-S-c | cursor on each line   |
-| Cmd+click   | place cursors by hand |
-| C-g         | back to one cursor    |
+| C-c m n | mark next occurrence                 |
+| C-c m p | mark previous occurrence             |
+| C-c m a | mark all occurrences                 |
+| C-c m l | cursor on each line of the selection |
+| C-g     | back to one cursor                   |
 Typing, deleting, moving: every cursor does it.
 
 * Windows
-| C-x 3 / C-x 2 | split right / below  |
-| C-x 0         | close this window    |
-| C-x 1         | close the others     |
-| C-x o         | next window (o o o…) |
-| C-s-arrows    | resize this window   |
-| C-c w =       | equalize sizes       |
-| C-c ← / →     | undo / redo layout   |
+| C-x 3 / C-x 2 | split right / below      |
+| C-x 0         | close this window        |
+| C-x 1         | close the others         |
+| C-x o         | next window (o o o…)     |
+| C-x ^         | taller (repeat with ^)   |
+| C-x { / C-x } | narrower / wider         |
+| C-c w =       | equalize sizes           |
+| C-c ← / →     | undo / redo layout       |
+Dragging window borders with the mouse also works.
+
+* Buffers
+| C-x b         | switch buffer             |
+| C-x C-b       | list all buffers          |
+| C-x k         | close this buffer         |
+| C-x → / C-x ← | next / previous buffer    |
+
+* Files and projects
+| C-x C-f | open a file, or type a new name to create one |
+| C-x C-s | save                                          |
+| C-x C-w | save as                                       |
+| C-x s   | save all open files                           |
+| C-x p p | switch project                                |
+| C-x p f | find file in project                          |
+| C-x p b | project buffers                               |
+| C-x C-j | dired: this file's folder                     |
+| C-x d   | dired: pick a folder                          |
+In dired: RET opens, ^ goes up, g refreshes,
+d marks for delete, x executes, R renames, C copies.
+
+* Compile and run (C)
+| C-x C-s          | save first                              |
+| M-x compile      | prompts for a command, e.g.             |
+|                  | gcc -Wall -g hello.c -o hello, or make  |
+| g                | re-run, from the compile window         |
+| M-x recompile    | re-run from anywhere                    |
+| M-g n / M-g p    | next / previous error, jumps to source  |
+| M-! then ./hello | run your program, output at the bottom  |
+| M-x gdb          | debug (compile with -g first)           |
+Compile remembers the last command, so the next one is just RET.
+
+* Terminal
+| C-c o v | open / close the panel  |
+| C-c C-t | copy mode: move, select |
+| RET     | …copy and return        |
+| C-y     | paste                   |
+Most keys go to the shell. C-x and C-c stay Emacs.
+Built-in shells, no panel needed:
+| M-!        | run one command, output at the bottom |
+| M-x shell  | shell in a normal buffer              |
+| M-x eshell | Emacs-style shell                     |
+| C-c C-c    | stop a running program (shell buffer) |
+| M-p / M-n  | previous / next command (shell buffer)|
+
+* Claude
+| C-c o c | open / close the Claude panel |
+First launch asks which folder to run in.
+It runs claude update, then claude.
 
 * Org
 | TAB / S-TAB | fold heading / fold all |
@@ -93,44 +158,24 @@ In capture: C-c C-c files it, C-c C-k abandons it.
 | u         | up a heading level      |
 | SPC / DEL | page down / page up     |
 | q         | close                   |
-.md opens in reading view: prose font, markup hidden,
-code blocks highlighted. The single letters work there
-only; C-c C-v switches to editing and the code font.
+.md opens in reading view: markup hidden, code blocks
+highlighted. The single letters work there only.
+C-c C-v switches to editing.
 
-* Claude
-| C-c RET     | send                 |
-| C-u C-c RET | menu: model, context |
-The chat is a plain org buffer. Save it like a file.
-From code: select a region, M-x gptel-send.
-M-x gptel-add feeds the region or buffer to context.
-
-* Terminal
-| Ctrl+`       | open / close            |
-| C-c C-t      | copy mode: move, select |
-| RET          | …copy and return        |
-| Cmd+V or C-y | paste                   |
-Most keys go to the shell. C-x and C-c stay Emacs.
-
-* Browser (eww)
-| l / r | back / forward       |
-| g     | reload               |
-| w     | copy page URL        |
-| &     | open in real browser |
-| q     | close                |
-
-* Files & projects
-| C-x p p | switch project            |
-| C-x p f | find file in project      |
-| C-x p b | project buffers           |
-| C-x C-j | dired: this file's folder |
-| C-x d   | dired: pick a folder      |
-In dired: RET opens, ^ goes up, g refreshes,
-d marks for delete, x executes, R renames, C copies.
+* Over ssh / mosh
+Mouse works: click, scroll, drag window borders.
+M-w and C-w copy to your local clipboard through OSC 52,
+if your local terminal allows it.
+If M-x or M-↑ do nothing, set your local terminal to treat
+Option or Alt as Meta, or tap Esc then the key.
 
 * Help
-| C-h k | what does this key do   |
-| C-h f | describe a function     |
-| C-h v | describe a variable     |
-| C-h m | all keys for this mode  |
-| C-h o | describe thing at point |
+| C-h t | built-in tutorial, worth doing once |
+| C-h k | what does this key do               |
+| C-h f | describe a function                 |
+| C-h v | describe a variable                 |
+| C-h m | all keys for this mode              |
+| C-h o | describe thing at point             |
+| C-h a | find a command by keyword           |
+| C-h r | full manual                         |
 Pause after any prefix and which-key lists the rest.
